@@ -2445,52 +2445,6 @@ def render(tab):
                                     key="dl_corrected_docx",
                                 )
 
-                                # ── PDF download ──────────────────────────────────
-                                if st.button("📄 Convert & Download as PDF", key="dl_corrected_pdf"):
-                                    with st.spinner("Converting to PDF…"):
-                                        pdf_bytes = None
-                                        err_msg   = None
-                                        try:
-                                            import tempfile, subprocess, shutil
-                                            with tempfile.TemporaryDirectory() as tmpdir:
-                                                docx_path = os.path.join(tmpdir, "corrected.docx")
-                                                pdf_path  = os.path.join(tmpdir, "corrected.pdf")
-                                                with open(docx_path, "wb") as f:
-                                                    f.write(st.session_state["secman_fixed_docx_bytes"])
-                                                # Try docx2pdf first (requires Word on Windows/Mac)
-                                                try:
-                                                    from docx2pdf import convert
-                                                    convert(docx_path, pdf_path)
-                                                except Exception:
-                                                    # Fallback: LibreOffice headless
-                                                    lo = shutil.which("soffice") or shutil.which("libreoffice")
-                                                    if lo:
-                                                        subprocess.run(
-                                                            [lo, "--headless", "--convert-to", "pdf",
-                                                             "--outdir", tmpdir, docx_path],
-                                                            check=True, capture_output=True, timeout=30,
-                                                        )
-                                                    else:
-                                                        err_msg = (
-                                                            "PDF conversion requires Microsoft Word (docx2pdf) "
-                                                            "or LibreOffice to be installed on this machine."
-                                                        )
-                                                if os.path.exists(pdf_path):
-                                                    with open(pdf_path, "rb") as f:
-                                                        pdf_bytes = f.read()
-                                        except Exception as e:
-                                            err_msg = f"PDF conversion failed: {e}"
-
-                                    if pdf_bytes:
-                                        st.download_button(
-                                            "⬇️ Download PDF",
-                                            data=pdf_bytes,
-                                            file_name=f"{base_name}_corrected.pdf",
-                                            mime="application/pdf",
-                                            key="dl_corrected_pdf_file",
-                                        )
-                                    elif err_msg:
-                                        st.error(err_msg)
                                 if st.button("↩️ Edit values & regenerate", key="redo_fills"):
                                     st.session_state["secman_fixed_docx_bytes"] = None
                                     st.session_state["secman_fix_log"]          = None
