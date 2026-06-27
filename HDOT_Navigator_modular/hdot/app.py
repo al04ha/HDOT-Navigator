@@ -29,13 +29,47 @@ from config import (
     API_KEY, BASE_DIRECTORY, DEFAULT_DEST_FOLDER, PROJECT_TEMPLATE_STRUCTURE,
 )
 
+# ── Override config values from Streamlit secrets (cloud deployment) ──────────
+# st.secrets is only available after set_page_config, so we patch here.
+try:
+    _secrets_key = st.secrets.get("GEMINI_API_KEY", "")
+    if _secrets_key:
+        config.API_KEY = _secrets_key
+        API_KEY = _secrets_key
+    _secrets_base = st.secrets.get("BASE_DIRECTORY", "")
+    if _secrets_base:
+        config.BASE_DIRECTORY = _secrets_base
+        BASE_DIRECTORY = _secrets_base
+except Exception:
+    pass
+
 # ── API key guard ─────────────────────────────────────────────────────────────
 if not API_KEY:
     st.error("Error: GEMINI_API_KEY not found in configuration.")
     st.stop()
 
-# ── First-run: ask for BASE_DIRECTORY if not set ──────────────────────────────
-if not BASE_DIRECTORY:
+# ── Per-session BASE_DIRECTORY setup ─────────────────────────────────────────
+# On Streamlit Cloud there is no persistent local file system.
+# Each user gets a session-scoped temporary directory under /tmp.
+# On local installs, BASE_DIRECTORY is read from .env as before.
+import uuid as _uuid
+
+_is_cloud = not os.path.exists(BASE_DIRECTORY) if BASE_DIRECTORY else True
+
+if _is_cloud:
+    # Cloud deployment — create a per-session temp directory
+    if "session_base_dir" not in st.session_state:
+        _session_id  = str(_uuid.uuid4())[:8]
+        _session_dir = f"/tmp/hdot_session_{_session_id}"
+        os.makedirs(_session_dir, exist_ok=True)
+        os.makedirs(os.path.join(_session_dir, "projects"), exist_ok=True)
+        st.session_state["session_base_dir"] = _session_dir
+
+    BASE_DIRECTORY       = st.session_state["session_base_dir"]
+    config.BASE_DIRECTORY = BASE_DIRECTORY
+
+elif not BASE_DIRECTORY:
+    # Local install — first-run setup prompt
     local_env_path = Path.home() / ".hdot_navigator" / ".env"
     st.markdown("## 👋 Welcome to HDOT Project Navigator")
     st.markdown("**One-time setup:** Tell the app where your project files are stored.")
